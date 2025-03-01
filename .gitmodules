@@ -1,0 +1,6 @@
+[submodule "extern/zstd"]
+	path = extern/zstd
+	url = https://github.com/facebook/zstd.git
+[submodule "extern/lz4"]
+	path = extern/lz4
+	url = https://github.com/lz4/lz4.git
