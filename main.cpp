@@ -1,14 +1,90 @@
 #define _CRT_SECURE_NO_WARNINGS
+#include <assert.h>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <lz4.h>
 #include <stdexcept>
+#include <string>
+#include <unordered_map>
 #include <vector>
 #include <zstd.h>
 
 // zstd frame header (https://datatracker.ietf.org/doc/rfc8878/, 3.1.1)
 static const char kZStd[] = "\x28\xb5\x2f\xfd";
+
+enum BinaryPropertyFormat
+{
+    bpfUnknown = 0,
+    bpfString,
+    bpfBool,
+    bpfInt,
+    bpfFloat,
+    bpfDouble,
+    bpfUDim,
+    bpfUDim2,
+    bpfRay,
+    bpfFaces,
+    bpfAxes,
+    bpfBrickColor,
+    bpfColor3,
+    bpfVector2,
+    bpfVector3,
+    bpfVector2int16,
+    bpfCFrameMatrix,
+    bpfCFrameQuat,
+    bpfEnum,
+    bpfRef,
+    bpfVector3int16,
+    bpfNumberSequence,
+    bpfColorSequenceV1,
+    bpfNumberRange,
+    bpfRect2D,
+    bpfPhysicalProperties,
+    bpfColor3uint8,
+    bpfInt64,
+    bpfSharedStringDictionaryIndex,
+    bpfBytecode,
+    bpfOptionalCFrame,
+    bpfUniqueId,
+    bpfFont,
+    bpfSecurityCapabilities,
+    bpfContent,
+};
+
+class RobloxDocument
+{
+  public:
+    struct Property
+    {
+        BinaryPropertyFormat format;
+
+        // TODO: not optimal!!!
+        std::string propertyName;
+    };
+
+    struct Instance
+    {
+        int parentId = -1;
+        int id;
+        uint32_t typeIndex;
+        bool isService;
+        bool isServiceRooted;
+
+        std::vector<Property> properties;
+        std::vector<int> childIds;
+    };
+
+    struct Type
+    {
+        std::string name;
+    };
+
+    std::unordered_map<std::string, std::string> meta;
+    std::vector<Instance> instances;
+
+    std::vector<Type> types;
+};
 
 class BinaryBlob
 {
@@ -121,7 +197,9 @@ class BinaryBlob
     // Returns the current reading offset.
     size_t tell() const { return offset; }
 
-    void skip(unsigned int numBytes) { offset += size_t(numBytes); }
+    unsigned char readChar(size_t offset) const { return buffer[offset]; }
+
+    void skip(size_t numBytes) { offset += numBytes; }
 
   private:
     std::vector<uint8_t> buffer; // In-memory storage for the file data.
@@ -176,19 +254,19 @@ struct FileHeader
 {
     char magic[8];
     char signature[6];
-    unsigned short version;
+    uint16_t version;
 
-    unsigned int types;
-    unsigned int objects;
-    unsigned int reserved[2];
+    uint32_t types;
+    uint32_t objects;
+    uint32_t reserved[2];
 };
 
 struct ChunkHeader
 {
     char name[4];
-    unsigned int compressedSize; // if compressedSize is 0, chunk data is not compressed
-    unsigned int size;
-    unsigned int reserved;
+    uint32_t compressedSize; // if compressedSize is 0, chunk data is not compressed
+    uint32_t size;
+    uint32_t reserved;
 };
 
 enum BinaryObjectFormat
@@ -197,43 +275,9 @@ enum BinaryObjectFormat
     bofServiceType
 };
 
-enum BinaryPropertyFormat
+enum BinaryParentLinkFormat
 {
-    bpfUnknown = 0,
-    bpfString,
-    bpfBool,
-    bpfInt,
-    bpfFloat,
-    bpfDouble,
-    bpfUDim,
-    bpfUDim2,
-    bpfRay,
-    bpfFaces,
-    bpfAxes,
-    bpfBrickColor,
-    bpfColor3,
-    bpfVector2,
-    bpfVector3,
-    bpfVector2int16,
-    bpfCFrameMatrix,
-    bpfCFrameQuat,
-    bpfEnum,
-    bpfRef,
-    bpfVector3int16,
-    bpfNumberSequence,
-    bpfColorSequenceV1,
-    bpfNumberRange,
-    bpfRect2D,
-    bpfPhysicalProperties,
-    bpfColor3uint8,
-    bpfInt64,
-    bpfSharedStringDictionaryIndex,
-    bpfBytecode,
-    bpfOptionalCFrame,
-    bpfUniqueId,
-    bpfFont,
-    bpfSecurityCapabilities,
-    bpfContent,
+    bplfPlain,
 };
 
 const char* toString(BinaryPropertyFormat v)
@@ -315,7 +359,6 @@ const char* toString(BinaryPropertyFormat v)
     }
 }
 
-
 void readChunkData(const ChunkHeader& chunk, BinaryBlob& blob, BinaryBlob& bytes)
 {
     static std::vector<char> compressed;
@@ -357,27 +400,28 @@ void readIntVector(BinaryBlob& blob, std::vector<int>& values, size_t count)
     values.clear();
     values.reserve(count);
 
-    
     if (blob.tell() + count * 4 > blob.size())
     {
 
         throw std::runtime_error("readIntVector offset is out of bounds");
     }
 
+    size_t startOffset = blob.tell();
     for (size_t i = 0; i < count; ++i)
     {
         unsigned char v0;
         unsigned char v1;
         unsigned char v2;
         unsigned char v3;
-        blob.read(v0);
-        blob.read(v1);
-        blob.read(v2);
-        blob.read(v3);
+        v0 = blob.readChar(startOffset + count * 0 + i);
+        v1 = blob.readChar(startOffset + count * 1 + i);
+        v2 = blob.readChar(startOffset + count * 2 + i);
+        v3 = blob.readChar(startOffset + count * 3 + i);
         values.push_back(decodeInt((v0 << 24) | (v1 << 16) | (v2 << 8) | v3));
     }
-}
 
+    blob.skip(count * 4);
+}
 
 void readIdVector(BinaryBlob& blob, std::vector<int>& values, size_t count)
 {
@@ -391,8 +435,7 @@ void readIdVector(BinaryBlob& blob, std::vector<int>& values, size_t count)
     }
 }
 
-
-void readMetadata(const ChunkHeader& chunk, BinaryBlob& blob)
+void readMetadata(const ChunkHeader& chunk, BinaryBlob& blob, RobloxDocument& doc)
 {
     if (chunk.reserved != 0)
     {
@@ -411,6 +454,8 @@ void readMetadata(const ChunkHeader& chunk, BinaryBlob& blob)
 
         printf("name = '%s'\n", name.c_str());
         printf("value = '%s'\n", value.c_str());
+
+        doc.meta.emplace(name, value);
     }
 }
 
@@ -435,23 +480,76 @@ void readSharedStrings(const ChunkHeader& chunk, BinaryBlob& blob)
     }
 }
 
-void readProperty(const ChunkHeader& chunk, BinaryBlob& blob)
+void readParentsChunk(const ChunkHeader& chunk, BinaryBlob& blob, RobloxDocument& doc)
 {
-//
-    unsigned int typeIndex;
+    char format;
+    blob.read(format);
+
+    if (format != bplfPlain)
+    {
+        throw std::runtime_error("Unrecognized parent link format");
+    }
+
+    uint32_t linkCount = 0;
+    blob.read(linkCount);
+
+    std::vector<int> childIds;
+    readIdVector(blob, childIds, linkCount);
+
+    std::vector<int> parentIds;
+    readIdVector(blob, parentIds, linkCount);
+
+    for (uint32_t i = 0; i < linkCount; i++)
+    {
+        int childId = childIds[i];
+        int parentId = parentIds[i];
+
+        printf("%d:%d\n", childId, parentId);
+
+        RobloxDocument::Instance& child = doc.instances[childId];
+        child.parentId = (parentId >= 0) ? parentId : -1;
+
+        if (parentId >= 0 && parentId < doc.instances.size())
+        {
+            RobloxDocument::Instance& parent = doc.instances[parentId];
+            parent.childIds.emplace_back(childId);
+        }
+    }
+
+    return;
+}
+
+void readProperty(const ChunkHeader& chunk, BinaryBlob& blob, RobloxDocument& doc)
+{
+    //
+    uint32_t typeIndex;
     blob.read(typeIndex);
 
     std::string propertyName;
     readString(blob, propertyName);
 
-    char format;
-    blob.read(format);
-    printf("Type index %d, prop name '%s', prop format = %s\n", typeIndex, propertyName.c_str(), toString(BinaryPropertyFormat(format)));
+    char propFormat;
+    blob.read(propFormat);
+    printf("Type index %d, prop name '%s', prop format = %s\n", typeIndex, propertyName.c_str(),
+           toString(BinaryPropertyFormat(propFormat)));
+
+    RobloxDocument::Type& type = doc.types[typeIndex];
+
+    for (size_t i = 0; i < doc.instances.size(); i++)
+    {
+        RobloxDocument::Instance& inst = doc.instances[i];
+        if (inst.typeIndex != typeIndex)
+        {
+            continue;
+        }
+
+        inst.properties.push_back(RobloxDocument::Property{BinaryPropertyFormat(propFormat), propertyName});
+    }
 }
 
-void readInstances(const ChunkHeader& chunk, BinaryBlob& blob)
+void readInstances(const ChunkHeader& chunk, BinaryBlob& blob, RobloxDocument& doc)
 {
-    unsigned int typeIndex;
+    uint32_t typeIndex;
     blob.read(typeIndex);
 
     std::string typeName;
@@ -471,28 +569,90 @@ void readInstances(const ChunkHeader& chunk, BinaryBlob& blob)
 
     std::vector<int> ids;
     readIdVector(blob, ids, idCount);
+    size_t numInstances = ids.size();
 
     bool isServiceType = (format == bofServiceType);
-    std::vector<bool> isServiceRooted;
+    std::vector<bool> isServiceRootedArray;
     if (isServiceType)
     {
-        isServiceRooted.reserve(ids.size());
+        isServiceRootedArray.resize(numInstances);
 
-        for (size_t i = 0; i < ids.size(); ++i)
+        for (size_t i = 0; i < numInstances; ++i)
         {
             bool value;
             blob.read(value);
-            isServiceRooted.push_back(value);
+            isServiceRootedArray[i] = value;
         }
     }
 
-    for (size_t i = 0; i < ids.size(); ++i)
+    assert(typeIndex < doc.types.size());
+    doc.types[typeIndex] = RobloxDocument::Type{typeName};
+
+    for (size_t i = 0; i < numInstances; ++i)
     {
+        int instanceId = ids[i];
+        printf("  -> %d\n", instanceId);
+        bool isServiceRooted = isServiceType ? isServiceRootedArray[i] : false;
+        if (instanceId >= doc.instances.size())
+        {
+            int a = 0;
+        }
+
+        assert(instanceId < doc.instances.size());
+        doc.instances[instanceId] = RobloxDocument::Instance{-1, instanceId, typeIndex, isServiceType, isServiceRooted};
+    }
+
+    int yy = 0;
+}
+
+void printIndent(uint32_t indent)
+{
+    for (uint32_t i = 0; i < indent; i++)
+    {
+        printf(">>");
+    }
+}
+
+void printInstance(const RobloxDocument& doc, const RobloxDocument::Instance& inst, uint32_t indent)
+{
+    const RobloxDocument::Type& type = doc.types[inst.typeIndex];
+    // root instances
+    printIndent(indent);
+    printf("%s\n", type.name.c_str());
+
+/*
+    for (size_t j = 0; j < inst.properties.size(); j++)
+    {
+        const RobloxDocument::Property& prop = inst.properties[j];
+        printIndent(indent);
+        printf(" - %s: %s\n", prop.propertyName.c_str(), toString(BinaryPropertyFormat(prop.format)));
+    }
+*/
+
+    for (size_t i = 0; i < inst.childIds.size(); i++)
+    {
+        int childId = inst.childIds[i];
+        const RobloxDocument::Instance& childInst = doc.instances[childId];
+        printInstance(doc, childInst, indent+1);
+    }
+}
+
+void printDoc(const RobloxDocument& doc)
+{
+    for (size_t i = 0; i < doc.instances.size(); i++)
+    {
+        const RobloxDocument::Instance& inst = doc.instances[i];
+        if (inst.parentId < 0 || (inst.isService && inst.isServiceRooted))
+        {
+            printInstance(doc, inst, 0);
+        }
     }
 }
 
 void load(const char* fileName)
 {
+    RobloxDocument doc;
+
     BinaryBlob chunkBlob;
 
     BinaryBlob fileBlob;
@@ -516,6 +676,9 @@ void load(const char* fileName)
         throw std::runtime_error("Unrecognized version.");
     }
 
+    doc.instances.resize(header.objects);
+    doc.types.resize(header.types);
+
     while (fileBlob.tell() < fileBlob.size())
     {
         ChunkHeader chunk = {};
@@ -525,7 +688,7 @@ void load(const char* fileName)
         if (memcmp(chunk.name, kChunkInstances, sizeof(chunk.name)) == 0)
         {
             printf("kChunkInstances\n");
-            readInstances(chunk, chunkBlob);
+            readInstances(chunk, chunkBlob, doc);
         }
         else if (memcmp(chunk.name, kChunkHash, sizeof(chunk.name)) == 0)
         {
@@ -534,16 +697,17 @@ void load(const char* fileName)
         else if (memcmp(chunk.name, kChunkProperty, sizeof(chunk.name)) == 0)
         {
             printf("kChunkProperty\n");
-            readProperty(chunk, chunkBlob);
+            readProperty(chunk, chunkBlob, doc);
         }
         else if (memcmp(chunk.name, kChunkParents, sizeof(chunk.name)) == 0)
         {
             printf("kChunkParents\n");
+            readParentsChunk(chunk, chunkBlob, doc);
         }
         else if (memcmp(chunk.name, kChunkMetadata, sizeof(chunk.name)) == 0)
         {
             printf("kChunkMetadata\n");
-            readMetadata(chunk, chunkBlob);
+            readMetadata(chunk, chunkBlob, doc);
         }
         else if (memcmp(chunk.name, kChunkSharedStrings, sizeof(chunk.name)) == 0)
         {
@@ -569,6 +733,9 @@ void load(const char* fileName)
         // unsigned int chunkSize = (chunk.compressedSize == 0) ? chunk.size : chunk.compressedSize;
         // blob.skip(chunkSize);
     }
+
+    printDoc(doc);
+    return;
 }
 
 int main()
