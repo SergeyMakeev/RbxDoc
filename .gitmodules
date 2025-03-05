@@ -4,3 +4,6 @@
 [submodule "extern/lz4"]
 	path = extern/lz4
 	url = https://github.com/lz4/lz4.git
+[submodule "extern/pugixml"]
+	path = extern/pugixml
+	url = https://github.com/zeux/pugixml.git

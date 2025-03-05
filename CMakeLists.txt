@@ -55,3 +55,14 @@ target_link_libraries(
     lz4_static
 )
 
+
+#add pugi xml
+add_subdirectory("${PROJECT_SOURCE_DIR}/extern/pugixml")
+target_link_libraries(
+    ${PROJ_NAME}
+    PRIVATE
+    pugixml-static
+)
+
+
+

@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <vector>
 #include <zstd.h>
+#include <pugixml.hpp>
 
 // zstd frame header (https://datatracker.ietf.org/doc/rfc8878/, 3.1.1)
 static const char kZStd[] = "\x28\xb5\x2f\xfd";
@@ -740,6 +741,20 @@ void load(const char* fileName)
 
 int main()
 {
+    pugi::xml_document doc;
+    pugi::xml_parse_result result = doc.load_file("../data/test.rbxmx");
+    if (result)
+    {
+        for (pugi::xml_node child : doc.child("roblox").child("Item").children())
+        {
+            const pugi::char_t* className = child.attribute("class").as_string();
+            printf("name:'%s'\n", className);
+        }
+
+    }
+
+
+
     load("../data/test.rbxm");
 
     return 0;
