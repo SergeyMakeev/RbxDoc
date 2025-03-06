@@ -1,43 +1,36 @@
 cmake_minimum_required(VERSION 3.6)
-
-set(CMAKE_CONFIGURATION_TYPES "Debug;Release" CACHE STRING "" FORCE)
+project(rbxdoc)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
-set(PROJ_NAME RbxDoc)
-project(${PROJ_NAME})
-
-set (CMAKE_CXX_STANDARD 17)
-
-
-set(RBX_DOC_SOURCES 
-  main.cpp
-)
-set (EXE_NAME ${PROJ_NAME})
-add_executable(${EXE_NAME} ${RBX_DOC_SOURCES})
-set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ${EXE_NAME})
-
 if(MSVC)
-  target_compile_options(${EXE_NAME} PRIVATE "$<$<CONFIG:Release>:/Zi>")
-  target_link_options(${EXE_NAME} PRIVATE "$<$<CONFIG:Release>:/DEBUG>")
-  target_link_options(${EXE_NAME} PRIVATE "$<$<CONFIG:Release>:/OPT:REF>")
-  target_link_options(${EXE_NAME} PRIVATE "$<$<CONFIG:Release>:/OPT:ICF>")
+    add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 endif()
 
 
 
+# static library
+# ---------------------------------------------------------------------------------------
+include(${PROJECT_SOURCE_DIR}/rbx-doc/Sources.cmake)
+
+add_library(rbxdoc-static STATIC ${LIB-SOURCES} ${LIB-HEADERS})
+target_include_directories(rbxdoc-static PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/rbx-doc/)
+
+# library dependencies
 # add zstd
 set(ZSTD_BUILD_STATIC ON)
 set(ZSTD_BUILD_SHARED OFF)
 set(ZSTD_BUILD_PROGRAMS OFF)
 add_subdirectory("${PROJECT_SOURCE_DIR}/extern/zstd/build/cmake")
 target_link_libraries(
-    ${PROJ_NAME}
+    rbxdoc-static
     PRIVATE
     libzstd_static
 )
 target_include_directories(
-    ${PROJ_NAME}
+    rbxdoc-static
     PRIVATE
     ${zstd_SOURCE_DIR}/lib
 )
@@ -50,19 +43,20 @@ set(LZ4_BUILD_LEGACY_LZ4C OFF)
 set(LZ4_BUNDLED_MODE ON)
 add_subdirectory("${PROJECT_SOURCE_DIR}/extern/lz4/build/cmake")
 target_link_libraries(
-    ${PROJ_NAME}
+    rbxdoc-static
     PRIVATE
     lz4_static
 )
 
+# ---------------------------------------------------------------------------------------
 
-#add pugi xml
-add_subdirectory("${PROJECT_SOURCE_DIR}/extern/pugixml")
-target_link_libraries(
-    ${PROJ_NAME}
-    PRIVATE
-    pugixml-static
-)
+# unit test
+option(BUILD_RBX_DOC_TESTS "Build the unit tests" ON)
 
-
+if(BUILD_RBX_DOC_TESTS)
+  include(${PROJECT_SOURCE_DIR}/unittest/Sources.cmake)
+  add_executable(rbxdoc-test ${TEST-SOURCES} ${TEST-HEADERS})
+  target_link_libraries(rbxdoc-test PRIVATE rbxdoc-static)
+  set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT rbxdoc-test)
+endif()
 

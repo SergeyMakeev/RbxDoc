@@ -1,16 +1,18 @@
-#define _CRT_SECURE_NO_WARNINGS
+//#define _CRT_SECURE_NO_WARNINGS
 #include <assert.h>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
-#include <lz4.h>
+//#include <lz4.h>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include <zstd.h>
-#include <pugixml.hpp>
+//#include <zstd.h>
+//#include <pugixml.hpp>
+#include <rbxdoc.h>
 
+#if 0
 // zstd frame header (https://datatracker.ietf.org/doc/rfc8878/, 3.1.1)
 static const char kZStd[] = "\x28\xb5\x2f\xfd";
 
@@ -192,19 +194,17 @@ class BinaryBlob
     // Returns whether the file data has been successfully loaded.
     bool isLoaded() const { return !buffer.empty(); }
 
-    // Returns the total size of the loaded file.
     size_t size() const { return buffer.size(); }
-
-    // Returns the current reading offset.
     size_t tell() const { return offset; }
+
 
     unsigned char readChar(size_t offset) const { return buffer[offset]; }
 
     void skip(size_t numBytes) { offset += numBytes; }
 
   private:
-    std::vector<uint8_t> buffer; // In-memory storage for the file data.
-    size_t offset;               // Current read offset within the vector.
+    std::vector<uint8_t> buffer;
+    size_t offset;
 };
 
 static const char kMagicHeader[] = "<roblox!";
@@ -739,8 +739,26 @@ void load(const char* fileName)
     return;
 }
 
+#endif
+
 int main()
 {
+    rbxdoc::Document doc;
+    rbxdoc::LoadResult res = doc.loadFile("../data/test.rbxm");
+    if (res != rbxdoc::LoadResult::OK)
+    {
+        printf("Can't load file\n");
+        return -1;
+    }
+
+    for (const rbxdoc::Instance& instance : doc.getInstances())
+    {
+        for (const rbxdoc::Property& property : instance.getProperties())
+        {
+        }
+    }
+
+    /*
     pugi::xml_document doc;
     pugi::xml_parse_result result = doc.load_file("../data/test.rbxmx");
     if (result)
@@ -756,6 +774,7 @@ int main()
 
 
     load("../data/test.rbxm");
+    */
 
     return 0;
 }
