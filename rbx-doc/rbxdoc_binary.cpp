@@ -151,6 +151,51 @@ class BinaryBlob
     size_t offset;
 };
 
+enum class NormalId
+{
+    Right = 0,
+    Top = 1,
+    Back = 2,
+
+    Left = 3,
+    Bottom = 4,
+    Front = 5
+};
+
+static Vec3 normalIdToVector3(NormalId normalId)
+{
+    float coords[] = {0.0f, 0.0f, 0.0f};
+    int index = (int)(normalId);
+    coords[index % 3] = ((normalId >= NormalId::Left) ? -1.0f : 1.0f);
+    return Vec3{coords[0], coords[1], coords[2]};
+}
+
+static Vec3 vec3_cross(const Vec3& a, const Vec3& b) { return Vec3{a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x}; }
+
+static void idToMatrix3(int orientId, Mat3x3& matrix)
+{
+    NormalId xNormal = (NormalId)(orientId / 6);
+    NormalId yNormal = (NormalId)(orientId % 6);
+    Vec3 r0 = normalIdToVector3(xNormal);
+    Vec3 r1 = normalIdToVector3(yNormal);
+    Vec3 r2 = vec3_cross(r0, r1);
+    matrix = Mat3x3{r0.x, r0.y, r0.z, r1.x, r1.y, r1.z, r2.x, r2.y, r2.z};
+}
+
+static void readExactRotation(BinaryBlob& blob, Mat3x3& res)
+{
+    char orientId;
+    blob.read(orientId);
+    if (orientId)
+    {
+        idToMatrix3(orientId - 1, res);
+    }
+    else
+    {
+        blob.read(&res.v[0], sizeof(float) * 9);
+    }
+}
+
 static void readString(BinaryBlob& blob, std::string& res)
 {
     uint32_t length;
@@ -159,7 +204,21 @@ static void readString(BinaryBlob& blob, std::string& res)
     blob.read(&res[0], length);
 }
 
+union FloatBitcast
+{
+    float f;
+    unsigned int i;
+};
+
+static float decodeFloat(unsigned int value)
+{
+    FloatBitcast bitcast;
+    bitcast.i = (value >> 1) | (value << 31);
+    return bitcast.f;
+}
+
 static int decodeInt(int32_t value) { return (static_cast<uint32_t>(value) >> 1) ^ (-(value & 1)); }
+static int64_t decodeInt64(int64_t value) { return (static_cast<uint64_t>(value) >> 1) ^ (-(value & 1)); }
 
 static void readIntVector(BinaryBlob& blob, std::vector<int32_t>& values, size_t count)
 {
@@ -202,20 +261,78 @@ static void readUIntVector(BinaryBlob& blob, std::vector<uint32_t>& values, size
     size_t startOffset = blob.tell();
     for (size_t i = 0; i < count; ++i)
     {
-        uint8_t v0;
-        uint8_t v1;
-        uint8_t v2;
-        uint8_t v3;
-        v0 = blob.at(startOffset + count * 0 + i);
-        v1 = blob.at(startOffset + count * 1 + i);
-        v2 = blob.at(startOffset + count * 2 + i);
-        v3 = blob.at(startOffset + count * 3 + i);
+        uint8_t v0 = blob.at(startOffset + count * 0 + i);
+        uint8_t v1 = blob.at(startOffset + count * 1 + i);
+        uint8_t v2 = blob.at(startOffset + count * 2 + i);
+        uint8_t v3 = blob.at(startOffset + count * 3 + i);
         values.push_back((v0 << 24) | (v1 << 16) | (v2 << 8) | v3);
     }
 
     blob.skip(count * 4);
 }
 
+static void readInt64Vector(BinaryBlob& blob, std::vector<uint64_t>& values, size_t count)
+{
+    values.clear();
+    values.reserve(count);
+
+    if (blob.tell() + count * 8 > blob.size())
+    {
+        throw std::runtime_error("readInt64Vector offset is out of bounds");
+    }
+
+    size_t startOffset = blob.tell();
+    for (size_t i = 0; i < count; ++i)
+    {
+        uint64_t v0 = blob.at(startOffset + count * 0 + i);
+        uint64_t v1 = blob.at(startOffset + count * 0 + i);
+        uint64_t v2 = blob.at(startOffset + count * 0 + i);
+        uint64_t v3 = blob.at(startOffset + count * 0 + i);
+        uint64_t v4 = blob.at(startOffset + count * 0 + i);
+        uint64_t v5 = blob.at(startOffset + count * 0 + i);
+        uint64_t v6 = blob.at(startOffset + count * 0 + i);
+        uint64_t v7 = blob.at(startOffset + count * 0 + i);
+        values.push_back(decodeInt64((v0 << 56) | (v1 << 48) | (v2 << 40) | (v3 << 32) | (v4 << 24) | (v5 << 16) | (v6 << 8) | v7));
+    }
+
+    blob.skip(count * 8);
+}
+
+static void readFloatVector(BinaryBlob& blob, std::vector<float>& values, size_t count)
+{
+    values.clear();
+    values.reserve(count);
+
+    if (blob.tell() + count * 4 > blob.size())
+    {
+        throw std::runtime_error("readFloatVector offset is out of bounds");
+    }
+
+    size_t startOffset = blob.tell();
+    for (size_t i = 0; i < count; ++i)
+    {
+        uint8_t v0 = blob.at(startOffset + count * 0 + i);
+        uint8_t v1 = blob.at(startOffset + count * 1 + i);
+        uint8_t v2 = blob.at(startOffset + count * 2 + i);
+        uint8_t v3 = blob.at(startOffset + count * 3 + i);
+        values.push_back(decodeFloat((v0 << 24) | (v1 << 16) | (v2 << 8) | v3));
+    }
+
+    blob.skip(count * 4);
+}
+
+static void readUInt8Vector(BinaryBlob& blob, std::vector<uint8_t>& values, size_t count)
+{
+    values.clear();
+
+    if (blob.tell() + count > blob.size())
+    {
+        throw std::runtime_error("readUInt8Vector offset is out of bounds");
+    }
+
+    values.resize(count);
+    blob.read(values.data(), count);
+}
 
 static void readIdVector(BinaryBlob& blob, std::vector<int>& values, size_t count)
 {
@@ -300,7 +417,7 @@ void BinaryReader::readInstances(const ChunkHeader& chunk, BinaryBlob& blob, Doc
     for (size_t i = 0; i < numInstances; ++i)
     {
         int instanceId = ids[i];
-        printf("  -> %d\n", instanceId);
+        //printf("  -> %d\n", instanceId);
         bool isServiceRooted = isServiceType ? isServiceRootedArray[i] : false;
         if (instanceId >= doc.instances.size())
         {
@@ -322,7 +439,7 @@ void BinaryReader::readStringProperties(const std::string& name, BinaryBlob& blo
     for (size_t i = 0; i < typeInstances.size(); i++)
     {
         Instance& inst = doc.instances[i];
-        inst.properties.push_back(Property{name.c_str(), PropertyType::Enum});
+        inst.properties.push_back(Property{name.c_str(), PropertyType::String});
         Property& prop = inst.properties.back();
         readString(blob, tmp);
         prop.data = tmp;
@@ -348,7 +465,7 @@ void BinaryReader::readBoolProperties(const std::string& name, BinaryBlob& blob,
     for (size_t i = 0; i < typeInstances.size(); i++)
     {
         Instance& inst = doc.instances[i];
-        inst.properties.push_back(Property{name.c_str(), PropertyType::Enum});
+        inst.properties.push_back(Property{name.c_str(), PropertyType::Bool});
         Property& prop = inst.properties.back();
         char tmp;
         blob.read(tmp);
@@ -360,11 +477,11 @@ void BinaryReader::readIntProperties(const std::string& name, BinaryBlob& blob, 
 {
     std::vector<int32_t> values;
     readIntVector(blob, values, typeInstances.size());
-    
+
     for (size_t i = 0; i < typeInstances.size(); i++)
     {
         Instance& inst = doc.instances[i];
-        inst.properties.push_back(Property{name.c_str(), PropertyType::Enum});
+        inst.properties.push_back(Property{name.c_str(), PropertyType::Int});
         Property& prop = inst.properties.back();
         prop.data = values[i];
     }
@@ -372,7 +489,65 @@ void BinaryReader::readIntProperties(const std::string& name, BinaryBlob& blob, 
 
 void BinaryReader::readFloatProperties(const std::string& name, BinaryBlob& blob, Document& doc, const std::vector<uint32_t>& typeInstances)
 {
-    //
+    std::vector<float> values;
+    readFloatVector(blob, values, typeInstances.size());
+
+    for (size_t i = 0; i < typeInstances.size(); i++)
+    {
+        Instance& inst = doc.instances[i];
+        inst.properties.push_back(Property{name.c_str(), PropertyType::Float});
+        Property& prop = inst.properties.back();
+        prop.data = values[i];
+    }
+}
+
+void BinaryReader::readRefProperties(const std::string& name, BinaryBlob& blob, Document& doc, const std::vector<uint32_t>& typeInstances)
+{
+    std::vector<int32_t> values;
+    readIdVector(blob, values, typeInstances.size());
+    for (size_t i = 0; i < typeInstances.size(); i++)
+    {
+        Instance& inst = doc.instances[i];
+        inst.properties.push_back(Property{name.c_str(), PropertyType::Ref});
+        Property& prop = inst.properties.back();
+        prop.data = values[i];
+    }
+}
+
+void BinaryReader::readCFrameProperties(const std::string& name, BinaryBlob& blob, Document& doc,
+                                        const std::vector<uint32_t>& typeInstances)
+{
+    size_t numInstances = typeInstances.size();
+    std::vector<Mat3x3> rot(numInstances);
+    std::vector<float> tx;
+    std::vector<float> ty;
+    std::vector<float> tz;
+
+    for (size_t i = 0; i < numInstances; i++)
+    {
+        readExactRotation(blob, rot[i]);
+    }
+    readFloatVector(blob, tx, numInstances);
+    readFloatVector(blob, ty, numInstances);
+    readFloatVector(blob, tz, numInstances);
+
+    for (size_t i = 0; i < numInstances; i++)
+    {
+        Instance& inst = doc.instances[i];
+        inst.properties.push_back(Property{name.c_str(), PropertyType::Bool});
+        Property& prop = inst.properties.back();
+        prop.data = CFrame{rot[i], Vec3{tx[i], ty[i], tz[i]}};
+    }
+}
+
+void BinaryReader::createEmptyProperties(const std::string& name, Document& doc, const std::vector<uint32_t>& typeInstances)
+{
+    for (size_t i = 0; i < typeInstances.size(); i++)
+    {
+        Instance& inst = doc.instances[i];
+        inst.properties.push_back(Property{name.c_str(), PropertyType::Unknown});
+        Property& prop = inst.properties.back();
+    }
 }
 
 void BinaryReader::readProperties(const ChunkHeader& chunk, BinaryBlob& blob, Document& doc)
@@ -420,7 +595,15 @@ void BinaryReader::readProperties(const ChunkHeader& chunk, BinaryBlob& blob, Do
     case PropertyType::Enum:
         readEnumProperties(propertyName, blob, doc, typeInstances);
         break;
+    case PropertyType::Ref:
+        readRefProperties(propertyName, blob, doc, typeInstances);
+        break;
+    case PropertyType::CFrameMatrix:
+        readCFrameProperties(propertyName, blob, doc, typeInstances);
+        break;
+
     default:
+        createEmptyProperties(propertyName, doc, typeInstances);
         break;
     }
 }

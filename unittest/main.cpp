@@ -1,15 +1,15 @@
-//#define _CRT_SECURE_NO_WARNINGS
+// #define _CRT_SECURE_NO_WARNINGS
 #include <assert.h>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
-//#include <lz4.h>
+// #include <lz4.h>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <vector>
-//#include <zstd.h>
-//#include <pugixml.hpp>
+// #include <zstd.h>
+// #include <pugixml.hpp>
 #include <rbxdoc.h>
 
 #if 0
@@ -753,8 +753,35 @@ int main()
 
     for (const rbxdoc::Instance& instance : doc.getInstances())
     {
-        for (const rbxdoc::Property& property : instance.getProperties())
+        const char* typeName = doc.getTypeName(instance);
+        printf("%s\n", typeName);
+
+        for (const rbxdoc::Property& prop : instance.getProperties())
         {
+            rbxdoc::PropertyType propType = prop.getType();
+            if (propType == rbxdoc::PropertyType::Unknown)
+            {
+                continue;
+            }
+
+            printf("--%d %s = ", prop.getType(), prop.getName());
+            switch (propType)
+            {
+            case rbxdoc::PropertyType::String:
+            {
+                const char* val = prop.asString();
+                printf("'%s'\n", val);
+                break;
+            }
+            case rbxdoc::PropertyType::Float:
+            {
+                float val = prop.asFloat();
+                printf("'%f'\n", val);
+                break;
+            }
+            default:
+                printf("\n");
+            }
         }
     }
 

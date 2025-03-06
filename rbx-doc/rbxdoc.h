@@ -94,6 +94,24 @@ enum class PropertyType
     Content,
 };
 
+struct Vec3
+{
+    float x;
+    float y;
+    float z;
+};
+
+struct Mat3x3
+{
+    float v[9];
+};
+
+struct CFrame
+{
+    Mat3x3 rotation;
+    Vec3 translation;
+};
+
 class Property
 {
   public:
@@ -101,14 +119,19 @@ class Property
     Property(const char* _name, PropertyType _type);
 
     PropertyType getType() const;
+    const char* getName() const;
+
+    const char* asString(const char* defaultVal = "") const;
+    float asFloat(float defaultVal = 0.0f) const;
 
   private:
     std::string name;
     PropertyType type;
 
-    std::variant<std::string, bool, float, int32_t, uint32_t> data;
+    std::variant<std::string, bool, float, int32_t, uint32_t, CFrame> data;
 
     friend class BinaryReader;
+    friend class Document;
 };
 
 class Instance
@@ -129,6 +152,7 @@ class Instance
     bool isServiceRooted = false;
 
     friend class BinaryReader;
+    friend class Document;
 };
 
 class Type
@@ -136,6 +160,8 @@ class Type
   public:
     Type() = default;
     Type(std::string&& _name);
+
+    const char* getName() const;
 
   private:
     std::string name;
@@ -153,6 +179,8 @@ class Document
     LoadResult loadFile(const char* fileName);
 
     ArrayView<Instance> getInstances() const;
+
+    const char* getTypeName(const Instance& inst) const;
 
   private:
     std::vector<Instance> instances;

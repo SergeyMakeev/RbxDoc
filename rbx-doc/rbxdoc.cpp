@@ -10,16 +10,35 @@ Type::Type(std::string&& _name)
 {
 }
 
+const char* Type::getName() const { return name.c_str(); }
+
 Property::Property(const char* _name, PropertyType _type)
     : name(_name)
     , type(_type)
 {
 }
 
-PropertyType Property::getType() const
+PropertyType Property::getType() const { return type; }
+const char* Property::getName() const { return name.c_str(); }
+
+const char* Property::asString(const char* defaultVal) const
 {
-    //
-    return PropertyType::String;
+    if (type != PropertyType::String)
+    {
+        return defaultVal;
+    }
+
+    return std::get<std::string>(data).c_str();
+}
+
+float Property::asFloat(float defaultVal) const
+{
+    if (type != PropertyType::Float)
+    {
+        return defaultVal;
+    }
+
+    return std::get<float>(data);
 }
 
 Instance::Instance(int32_t _parentId, int32_t _id, uint32_t _typeIndex, bool _isService, bool _isServiceRooted)
@@ -59,14 +78,34 @@ LoadResult Document::loadFile(const char* fileName)
         return res;
     }
 
-    catch(...)
+    catch (...)
     {
         return LoadResult::Error;
     }
-    
-    
 }
 
 ArrayView<Instance> Document::getInstances() const { return ArrayView<Instance>(instances.begin(), instances.end()); }
+
+const char* Document::getTypeName(const Instance& inst) const
+{
+    if (inst.id < 0 || size_t(inst.id) >= instances.size())
+    {
+        return "";
+    }
+
+    const Instance& instRef = instances[inst.id];
+    if (&instRef != &inst)
+    {
+        return "";
+    }
+
+    if (inst.typeIndex >= types.size())
+    {
+        return "";
+    }
+
+    const Type& type = types[inst.typeIndex];
+    return type.getName();
+}
 
 } // namespace rbxdoc
