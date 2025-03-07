@@ -94,6 +94,24 @@ enum class PropertyType
     Content,
 };
 
+struct BrickColor
+{
+    uint32_t index;
+};
+
+struct UniqueId
+{
+    uint32_t index;
+    uint32_t timestamp;
+    int64_t rawbits;
+};
+
+struct Vec2
+{
+    float x;
+    float y;
+};
+
 struct Vec3
 {
     float x;
@@ -112,6 +130,67 @@ struct CFrame
     Vec3 translation;
 };
 
+struct OptionalCFrame
+{
+    CFrame val;
+    bool hasData;
+};
+
+struct Color3
+{
+    float r;
+    float g;
+    float b;
+};
+
+struct ColorSeq
+{
+    struct KeyValue
+    {
+        float time;
+        Color3 val;
+        float envelope;
+    };
+    std::vector<KeyValue> data;
+};
+
+struct NumberSeq
+{
+    struct KeyValue
+    {
+        float time;
+        float val;
+        float envelope;
+    };
+    std::vector<KeyValue> data;
+};
+
+struct UDim2
+{
+    float scaleX;
+    float scaleY;
+    int offsetX;
+    int offsetY;
+};
+
+struct Rect2D
+{
+    float x0;
+    float y0;
+    float x1;
+    float y1;
+};
+
+struct PhysicalProperties
+{
+    float density = 0.0f;
+    float friction = 0.0f;
+    float elasticity = 0.0f;
+    float frictionWeight = 1.0f;
+    float elasticityWeight = 1.0f;
+    float acousticAbsorption = 1.0f;
+};
+
 class Property
 {
   public:
@@ -128,7 +207,9 @@ class Property
     std::string name;
     PropertyType type;
 
-    std::variant<std::string, bool, float, int32_t, uint32_t, CFrame> data;
+    std::variant<std::string, bool, float, double, int32_t, uint32_t, int64_t, Vec2, Vec3, CFrame, OptionalCFrame, BrickColor, UniqueId,
+                 ColorSeq, NumberSeq, UDim2, Color3, Rect2D, PhysicalProperties>
+        data;
 
     friend class BinaryReader;
     friend class Document;
