@@ -41,6 +41,35 @@ float Property::asFloat(float defaultVal) const
     return std::get<float>(data);
 }
 
+const Vec3& Property::asVec3(const Vec3& defaultVal) const
+{
+    if (type != PropertyType::Vector3)
+    {
+        return defaultVal;
+    }
+
+    return std::get<Vec3>(data);
+}
+
+const CFrame& Property::asCFrame(const CFrame& defaultVal) const
+{
+    if (type != PropertyType::CFrameMatrix && type != PropertyType::CFrameQuat && type != PropertyType::OptionalCFrame)
+    {
+        return defaultVal;
+    }
+
+    if (type == PropertyType::OptionalCFrame)
+    {
+        const OptionalCFrame& ocf = std::get<OptionalCFrame>(data);
+        if (ocf.hasData)
+        {
+            return ocf.val;
+        }
+    }
+    return std::get<CFrame>(data);
+}
+
+
 Instance::Instance(int32_t _parentId, int32_t _id, uint32_t _typeIndex, bool _isService, bool _isServiceRooted)
     : parentId(_parentId)
     , id(_id)

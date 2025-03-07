@@ -39,7 +39,8 @@ struct FileHeader
 struct ChunkHeader
 {
     char name[4];
-    uint32_t compressedSize; // if compressedSize is 0, chunk data is not compressed
+    // if compressedSize is 0, chunk data is not compressed
+    uint32_t compressedSize; 
     uint32_t size;
     uint32_t reserved;
 };
@@ -417,12 +418,7 @@ void BinaryReader::readInstances(const ChunkHeader& chunk, BinaryBlob& blob, Doc
     for (size_t i = 0; i < numInstances; ++i)
     {
         int instanceId = ids[i];
-        // printf("  -> %d\n", instanceId);
         bool isServiceRooted = isServiceType ? isServiceRootedArray[i] : false;
-        if (instanceId >= doc.instances.size())
-        {
-            int a = 0;
-        }
 
         if (instanceId >= doc.instances.size())
         {
@@ -432,13 +428,12 @@ void BinaryReader::readInstances(const ChunkHeader& chunk, BinaryBlob& blob, Doc
     }
 }
 
-void BinaryReader::readStringProperties(const std::string& name, BinaryBlob& blob, Document& doc,
-                                        const std::vector<uint32_t>& typeInstances)
+void BinaryReader::readStringProperties(const std::string& name, BinaryBlob& blob, Document& doc, const std::vector<uint32_t>& typeInstances)
 {
     std::string tmp;
     for (size_t i = 0; i < typeInstances.size(); i++)
     {
-        Instance& inst = doc.instances[i];
+        Instance& inst = doc.instances[typeInstances[i]];
         inst.properties.push_back(Property{name.c_str(), PropertyType::String});
         Property& prop = inst.properties.back();
         readString(blob, tmp);
@@ -453,7 +448,7 @@ void BinaryReader::readEnumProperties(const std::string& name, BinaryBlob& blob,
 
     for (size_t i = 0; i < typeInstances.size(); i++)
     {
-        Instance& inst = doc.instances[i];
+        Instance& inst = doc.instances[typeInstances[i]];
         inst.properties.push_back(Property{name.c_str(), PropertyType::Enum});
         Property& prop = inst.properties.back();
         prop.data = values[i];
@@ -464,7 +459,7 @@ void BinaryReader::readBoolProperties(const std::string& name, BinaryBlob& blob,
 {
     for (size_t i = 0; i < typeInstances.size(); i++)
     {
-        Instance& inst = doc.instances[i];
+        Instance& inst = doc.instances[typeInstances[i]];
         inst.properties.push_back(Property{name.c_str(), PropertyType::Bool});
         Property& prop = inst.properties.back();
         char tmp;
@@ -480,8 +475,8 @@ void BinaryReader::readInt32Properties(const std::string& name, BinaryBlob& blob
 
     for (size_t i = 0; i < typeInstances.size(); i++)
     {
-        Instance& inst = doc.instances[i];
-        inst.properties.push_back(Property{name.c_str(), PropertyType::Int});
+        Instance& inst = doc.instances[typeInstances[i]];
+        inst.properties.push_back(Property{name.c_str(), PropertyType::Int32});
         Property& prop = inst.properties.back();
         prop.data = values[i];
     }
@@ -494,7 +489,7 @@ void BinaryReader::readInt64Properties(const std::string& name, BinaryBlob& blob
 
     for (size_t i = 0; i < typeInstances.size(); i++)
     {
-        Instance& inst = doc.instances[i];
+        Instance& inst = doc.instances[typeInstances[i]];
         inst.properties.push_back(Property{name.c_str(), PropertyType::Int64});
         Property& prop = inst.properties.back();
         prop.data = values[i];
@@ -508,30 +503,28 @@ void BinaryReader::readFloatProperties(const std::string& name, BinaryBlob& blob
 
     for (size_t i = 0; i < typeInstances.size(); i++)
     {
-        Instance& inst = doc.instances[i];
+        Instance& inst = doc.instances[typeInstances[i]];
         inst.properties.push_back(Property{name.c_str(), PropertyType::Float});
         Property& prop = inst.properties.back();
         prop.data = values[i];
     }
 }
 
-void BinaryReader::readDoubleProperties(const std::string& name, BinaryBlob& blob, Document& doc,
-                                        const std::vector<uint32_t>& typeInstances)
+void BinaryReader::readDoubleProperties(const std::string& name, BinaryBlob& blob, Document& doc, const std::vector<uint32_t>& typeInstances)
 {
     for (size_t i = 0; i < typeInstances.size(); i++)
     {
         double val;
         blob.read(val);
 
-        Instance& inst = doc.instances[i];
+        Instance& inst = doc.instances[typeInstances[i]];
         inst.properties.push_back(Property{name.c_str(), PropertyType::Double});
         Property& prop = inst.properties.back();
         prop.data = val;
     }
 }
 
-void BinaryReader::readRect2DProperties(const std::string& name, BinaryBlob& blob, Document& doc,
-                                        const std::vector<uint32_t>& typeInstances)
+void BinaryReader::readRect2DProperties(const std::string& name, BinaryBlob& blob, Document& doc, const std::vector<uint32_t>& typeInstances)
 {
     std::vector<float> x0;
     std::vector<float> y0;
@@ -544,7 +537,7 @@ void BinaryReader::readRect2DProperties(const std::string& name, BinaryBlob& blo
 
     for (size_t i = 0; i < typeInstances.size(); i++)
     {
-        Instance& inst = doc.instances[i];
+        Instance& inst = doc.instances[typeInstances[i]];
         inst.properties.push_back(Property{name.c_str(), PropertyType::Rect2D});
         Property& prop = inst.properties.back();
         prop.data = Rect2D{x0[i], y0[i], x1[i], y1[i]};
@@ -565,15 +558,14 @@ void BinaryReader::readUdim2Properties(const std::string& name, BinaryBlob& blob
 
     for (size_t i = 0; i < typeInstances.size(); i++)
     {
-        Instance& inst = doc.instances[i];
+        Instance& inst = doc.instances[typeInstances[i]];
         inst.properties.push_back(Property{name.c_str(), PropertyType::UDim2});
         Property& prop = inst.properties.back();
         prop.data = UDim2{sx[i], sy[i], ox[i], oy[i]};
     }
 }
 
-void BinaryReader::readVector3Properties(const std::string& name, BinaryBlob& blob, Document& doc,
-                                         const std::vector<uint32_t>& typeInstances)
+void BinaryReader::readVector3Properties(const std::string& name, BinaryBlob& blob, Document& doc, const std::vector<uint32_t>& typeInstances)
 {
     std::vector<float> x;
     std::vector<float> y;
@@ -584,7 +576,7 @@ void BinaryReader::readVector3Properties(const std::string& name, BinaryBlob& bl
 
     for (size_t i = 0; i < typeInstances.size(); i++)
     {
-        Instance& inst = doc.instances[i];
+        Instance& inst = doc.instances[typeInstances[i]];
         inst.properties.push_back(Property{name.c_str(), PropertyType::Vector3});
         Property& prop = inst.properties.back();
         prop.data = Vec3{x[i], y[i], z[i]};
@@ -592,8 +584,7 @@ void BinaryReader::readVector3Properties(const std::string& name, BinaryBlob& bl
 }
 
 void readUColor3Properties(const std::string& name, BinaryBlob& blob, Document& doc, const std::vector<uint32_t>& typeInstances);
-void BinaryReader::readUColor3Properties(const std::string& name, BinaryBlob& blob, Document& doc,
-                                         const std::vector<uint32_t>& typeInstances)
+void BinaryReader::readUColor3Properties(const std::string& name, BinaryBlob& blob, Document& doc, const std::vector<uint32_t>& typeInstances)
 {
     std::vector<uint8_t> r;
     std::vector<uint8_t> g;
@@ -604,15 +595,14 @@ void BinaryReader::readUColor3Properties(const std::string& name, BinaryBlob& bl
 
     for (size_t i = 0; i < typeInstances.size(); i++)
     {
-        Instance& inst = doc.instances[i];
-        inst.properties.push_back(Property{name.c_str(), PropertyType::Color3uint8});
+        Instance& inst = doc.instances[typeInstances[i]];
+        inst.properties.push_back(Property{name.c_str(), PropertyType::UColor3});
         Property& prop = inst.properties.back();
         prop.data = Color3{r[i] / 255.0f, g[i] / 255.0f, b[i] / 255.0f};
     }
 }
 
-void BinaryReader::readColor3Properties(const std::string& name, BinaryBlob& blob, Document& doc,
-                                        const std::vector<uint32_t>& typeInstances)
+void BinaryReader::readColor3Properties(const std::string& name, BinaryBlob& blob, Document& doc, const std::vector<uint32_t>& typeInstances)
 {
     std::vector<float> r;
     std::vector<float> g;
@@ -623,15 +613,14 @@ void BinaryReader::readColor3Properties(const std::string& name, BinaryBlob& blo
 
     for (size_t i = 0; i < typeInstances.size(); i++)
     {
-        Instance& inst = doc.instances[i];
+        Instance& inst = doc.instances[typeInstances[i]];
         inst.properties.push_back(Property{name.c_str(), PropertyType::Color3});
         Property& prop = inst.properties.back();
         prop.data = Color3{r[i], g[i], b[i]};
     }
 }
 
-void BinaryReader::readVector2Properties(const std::string& name, BinaryBlob& blob, Document& doc,
-                                         const std::vector<uint32_t>& typeInstances)
+void BinaryReader::readVector2Properties(const std::string& name, BinaryBlob& blob, Document& doc, const std::vector<uint32_t>& typeInstances)
 {
     std::vector<float> x;
     std::vector<float> y;
@@ -640,10 +629,33 @@ void BinaryReader::readVector2Properties(const std::string& name, BinaryBlob& bl
 
     for (size_t i = 0; i < typeInstances.size(); i++)
     {
-        Instance& inst = doc.instances[i];
+        Instance& inst = doc.instances[typeInstances[i]];
         inst.properties.push_back(Property{name.c_str(), PropertyType::Vector2});
         Property& prop = inst.properties.back();
         prop.data = Vec2{x[i], y[i]};
+    }
+}
+
+void BinaryReader::readFontProperties(const std::string& name, BinaryBlob& blob, Document& doc, const std::vector<uint32_t>& typeInstances)
+{
+    std::string family;
+    uint16_t weight;
+    uint8_t style;
+    std::string cachedFaceId;
+
+    for (size_t i = 0; i < typeInstances.size(); i++)
+    {
+        Instance& inst = doc.instances[typeInstances[i]];
+        inst.properties.push_back(Property{name.c_str(), PropertyType::Font});
+        Property& prop = inst.properties.back();
+        
+
+        readString(blob, family);
+        blob.read(weight);
+        blob.read(style);
+        readString(blob, cachedFaceId);
+
+        prop.data = FontInfo{family, weight, style, cachedFaceId};
     }
 }
 
@@ -653,29 +665,27 @@ void BinaryReader::readRefProperties(const std::string& name, BinaryBlob& blob, 
     readIdVector(blob, values, typeInstances.size());
     for (size_t i = 0; i < typeInstances.size(); i++)
     {
-        Instance& inst = doc.instances[i];
+        Instance& inst = doc.instances[typeInstances[i]];
         inst.properties.push_back(Property{name.c_str(), PropertyType::Ref});
         Property& prop = inst.properties.back();
         prop.data = values[i];
     }
 }
 
-void BinaryReader::readBrickColorProperties(const std::string& name, BinaryBlob& blob, Document& doc,
-                                            const std::vector<uint32_t>& typeInstances)
+void BinaryReader::readBrickColorProperties(const std::string& name, BinaryBlob& blob, Document& doc, const std::vector<uint32_t>& typeInstances)
 {
     std::vector<uint32_t> values;
     readUIntVector(blob, values, typeInstances.size());
     for (size_t i = 0; i < typeInstances.size(); i++)
     {
-        Instance& inst = doc.instances[i];
+        Instance& inst = doc.instances[typeInstances[i]];
         inst.properties.push_back(Property{name.c_str(), PropertyType::BrickColor});
         Property& prop = inst.properties.back();
         prop.data = BrickColor{values[i]};
     }
 }
 
-void BinaryReader::readUniqueIdProperties(const std::string& name, BinaryBlob& blob, Document& doc,
-                                          const std::vector<uint32_t>& typeInstances)
+void BinaryReader::readUniqueIdProperties(const std::string& name, BinaryBlob& blob, Document& doc, const std::vector<uint32_t>& typeInstances)
 {
     std::vector<uint32_t> indices;
     std::vector<uint32_t> timestamps;
@@ -687,15 +697,27 @@ void BinaryReader::readUniqueIdProperties(const std::string& name, BinaryBlob& b
 
     for (size_t i = 0; i < typeInstances.size(); i++)
     {
-        Instance& inst = doc.instances[i];
+        Instance& inst = doc.instances[typeInstances[i]];
         inst.properties.push_back(Property{name.c_str(), PropertyType::UniqueId});
         Property& prop = inst.properties.back();
         prop.data = UniqueId{indices[i], timestamps[i], rawbits[i]};
     }
 }
 
-void BinaryReader::readPhysicalProperties(const std::string& name, BinaryBlob& blob, Document& doc,
-                                          const std::vector<uint32_t>& typeInstances)
+void BinaryReader::readNumberRangeProperties(const std::string& name, BinaryBlob& blob, Document& doc, const std::vector<uint32_t>& typeInstances)
+{
+    NumberRange tmp;
+    for (size_t i = 0; i < typeInstances.size(); i++)
+    {
+        Instance& inst = doc.instances[typeInstances[i]];
+        inst.properties.push_back(Property{name.c_str(), PropertyType::NumberRange});
+        Property& prop = inst.properties.back();
+        blob.read(tmp);
+        prop.data = tmp;
+    }
+}
+
+void BinaryReader::readPhysicalProperties(const std::string& name, BinaryBlob& blob, Document& doc, const std::vector<uint32_t>& typeInstances)
 {
     static constexpr uint8_t kCustomizeMask = 0x01;
 
@@ -726,29 +748,27 @@ void BinaryReader::readPhysicalProperties(const std::string& name, BinaryBlob& b
             }
         }
 
-        Instance& inst = doc.instances[i];
+        Instance& inst = doc.instances[typeInstances[i]];
         inst.properties.push_back(Property{name.c_str(), PropertyType::PhysicalProperties});
         Property& prop = inst.properties.back();
         prop.data = PhysicalProperties{density, friction, elasticity, frictionWeight, elasticityWeight, acousticAbsorption};
     }
 }
 
-void BinaryReader::readSharedStringProperties(const std::string& name, BinaryBlob& blob, Document& doc,
-                                              const std::vector<uint32_t>& typeInstances)
+void BinaryReader::readSharedStringProperties(const std::string& name, BinaryBlob& blob, Document& doc, const std::vector<uint32_t>& typeInstances)
 {
     std::vector<uint32_t> indices;
     readUIntVector(blob, indices, typeInstances.size());
     for (size_t i = 0; i < typeInstances.size(); i++)
     {
-        Instance& inst = doc.instances[i];
-        inst.properties.push_back(Property{name.c_str(), PropertyType::SharedStringDictionaryIndex});
+        Instance& inst = doc.instances[typeInstances[i]];
+        inst.properties.push_back(Property{name.c_str(), PropertyType::SharedString});
         Property& prop = inst.properties.back();
         prop.data = std::string("TODO"); // copy from shared string dictionary
     }
 }
 
-void BinaryReader::readOptionalCFrameProperties(const std::string& name, BinaryBlob& blob, Document& doc,
-                                                const std::vector<uint32_t>& typeInstances)
+void BinaryReader::readOptionalCFrameProperties(const std::string& name, BinaryBlob& blob, Document& doc, const std::vector<uint32_t>& typeInstances)
 {
     size_t numInstances = typeInstances.size();
     std::vector<Mat3x3> rot(numInstances);
@@ -785,7 +805,7 @@ void BinaryReader::readOptionalCFrameProperties(const std::string& name, BinaryB
         char val;
         blob.read(val);
 
-        Instance& inst = doc.instances[i];
+        Instance& inst = doc.instances[typeInstances[i]];
         inst.properties.push_back(Property{name.c_str(), PropertyType::OptionalCFrame});
         Property& prop = inst.properties.back();
 
@@ -794,8 +814,7 @@ void BinaryReader::readOptionalCFrameProperties(const std::string& name, BinaryB
     }
 }
 
-void BinaryReader::readCFrameProperties(const std::string& name, BinaryBlob& blob, Document& doc,
-                                        const std::vector<uint32_t>& typeInstances)
+void BinaryReader::readCFrameProperties(const std::string& name, BinaryBlob& blob, Document& doc, const std::vector<uint32_t>& typeInstances)
 {
     size_t numInstances = typeInstances.size();
     std::vector<Mat3x3> rot(numInstances);
@@ -813,15 +832,14 @@ void BinaryReader::readCFrameProperties(const std::string& name, BinaryBlob& blo
 
     for (size_t i = 0; i < numInstances; i++)
     {
-        Instance& inst = doc.instances[i];
-        inst.properties.push_back(Property{name.c_str(), PropertyType::Bool});
+        Instance& inst = doc.instances[typeInstances[i]];
+        inst.properties.push_back(Property{name.c_str(), PropertyType::CFrameMatrix});
         Property& prop = inst.properties.back();
         prop.data = CFrame{rot[i], Vec3{tx[i], ty[i], tz[i]}};
     }
 }
 
-void BinaryReader::readNumberSequenceProperties(const std::string& name, BinaryBlob& blob, Document& doc,
-                                                const std::vector<uint32_t>& typeInstances)
+void BinaryReader::readNumberSequenceProperties(const std::string& name, BinaryBlob& blob, Document& doc, const std::vector<uint32_t>& typeInstances)
 {
     NumberSeq sq;
     for (size_t i = 0; i < typeInstances.size(); i++)
@@ -831,15 +849,14 @@ void BinaryReader::readNumberSequenceProperties(const std::string& name, BinaryB
         sq.data.resize(size);
         blob.read(&sq.data[0], sizeof(NumberSeq::KeyValue) * size);
 
-        Instance& inst = doc.instances[i];
+        Instance& inst = doc.instances[typeInstances[i]];
         inst.properties.push_back(Property{name.c_str(), PropertyType::NumberSequence});
         Property& prop = inst.properties.back();
         prop.data = sq;
     }
 }
 
-void BinaryReader::readColorSequenceProperties(const std::string& name, BinaryBlob& blob, Document& doc,
-                                               const std::vector<uint32_t>& typeInstances)
+void BinaryReader::readColorSequenceProperties(const std::string& name, BinaryBlob& blob, Document& doc, const std::vector<uint32_t>& typeInstances)
 {
     ColorSeq sq;
     for (size_t i = 0; i < typeInstances.size(); i++)
@@ -849,7 +866,7 @@ void BinaryReader::readColorSequenceProperties(const std::string& name, BinaryBl
         sq.data.resize(size);
         blob.read(&sq.data[0], sizeof(ColorSeq::KeyValue) * size);
 
-        Instance& inst = doc.instances[i];
+        Instance& inst = doc.instances[typeInstances[i]];
         inst.properties.push_back(Property{name.c_str(), PropertyType::ColorSequenceV1});
         Property& prop = inst.properties.back();
         prop.data = sq;
@@ -860,7 +877,7 @@ void BinaryReader::createEmptyProperties(const std::string& name, Document& doc,
 {
     for (size_t i = 0; i < typeInstances.size(); i++)
     {
-        Instance& inst = doc.instances[i];
+        Instance& inst = doc.instances[typeInstances[i]];
         inst.properties.push_back(Property{name.c_str(), PropertyType::Unknown});
         Property& prop = inst.properties.back();
     }
@@ -893,7 +910,6 @@ void BinaryReader::readProperties(const ChunkHeader& chunk, BinaryBlob& blob, Do
         typeInstances.emplace_back(uint32_t(i));
     }
 
-    // Note: this is constant across all instances
     switch (propertyType)
     {
     case PropertyType::String:
@@ -902,7 +918,7 @@ void BinaryReader::readProperties(const ChunkHeader& chunk, BinaryBlob& blob, Do
     case PropertyType::Bool:
         readBoolProperties(propertyName, blob, doc, typeInstances);
         break;
-    case PropertyType::Int:
+    case PropertyType::Int32:
         readInt32Properties(propertyName, blob, doc, typeInstances);
         break;
     case PropertyType::Int64:
@@ -917,7 +933,7 @@ void BinaryReader::readProperties(const ChunkHeader& chunk, BinaryBlob& blob, Do
     case PropertyType::Color3:
         readColor3Properties(propertyName, blob, doc, typeInstances);
         break;
-    case PropertyType::Color3uint8:
+    case PropertyType::UColor3:
         readUColor3Properties(propertyName, blob, doc, typeInstances);
         break;
     case PropertyType::Vector3:
@@ -956,11 +972,17 @@ void BinaryReader::readProperties(const ChunkHeader& chunk, BinaryBlob& blob, Do
     case PropertyType::Rect2D:
         readRect2DProperties(propertyName, blob, doc, typeInstances);
         break;
-    case PropertyType::SharedStringDictionaryIndex:
+    case PropertyType::SharedString:
         readSharedStringProperties(propertyName, blob, doc, typeInstances);
         break;
     case PropertyType::PhysicalProperties:
         readPhysicalProperties(propertyName, blob, doc, typeInstances);
+        break;
+    case PropertyType::NumberRange:
+        readNumberRangeProperties(propertyName, blob, doc, typeInstances);
+        break;
+    case PropertyType::Font:
+        readFontProperties(propertyName, blob, doc, typeInstances);
         break;
     default:
         createEmptyProperties(propertyName, doc, typeInstances);
@@ -1077,13 +1099,8 @@ LoadResult BinaryReader::loadBinary(const char* fileName, Document& doc)
         }
         else if (memcmp(chunk.name, kChunkEnd, sizeof(chunk.name)) == 0)
         {
-            printf("kChunkEnd\n");
+            // we done here
             break;
-        }
-        else
-        {
-            //  Unknown chunk, skip
-            printf("unknown\n");
         }
     }
 

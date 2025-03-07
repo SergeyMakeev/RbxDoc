@@ -60,7 +60,7 @@ enum class PropertyType
     Unknown = 0,
     String,
     Bool,
-    Int,
+    Int32,
     Float,
     Double,
     UDim,
@@ -83,9 +83,9 @@ enum class PropertyType
     NumberRange,
     Rect2D,
     PhysicalProperties,
-    Color3uint8,
+    UColor3,
     Int64,
-    SharedStringDictionaryIndex,
+    SharedString,
     Bytecode,
     OptionalCFrame,
     UniqueId,
@@ -181,6 +181,20 @@ struct Rect2D
     float y1;
 };
 
+struct FontInfo
+{
+    std::string family;
+    uint16_t weight;
+    uint8_t style;
+    std::string cachedFaceId;
+};
+
+struct NumberRange
+{
+    float min;
+    float max;
+};
+
 struct PhysicalProperties
 {
     float density = 0.0f;
@@ -202,13 +216,16 @@ class Property
 
     const char* asString(const char* defaultVal = "") const;
     float asFloat(float defaultVal = 0.0f) const;
+    const Vec3& asVec3(const Vec3& defaultVal = Vec3{0.0f, 0.0f, 0.0f}) const;
+    const CFrame& asCFrame(const CFrame& defaultVal = CFrame{Mat3x3{1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f}, Vec3{0.0f, 0.0f, 0.0f}}) const;
+    // TODO: add other types
 
   private:
     std::string name;
     PropertyType type;
 
-    std::variant<std::string, bool, float, double, int32_t, uint32_t, int64_t, Vec2, Vec3, CFrame, OptionalCFrame, BrickColor, UniqueId,
-                 ColorSeq, NumberSeq, UDim2, Color3, Rect2D, PhysicalProperties>
+    std::variant<std::string, bool, float, double, int32_t, uint32_t, int64_t, Vec2, Vec3, CFrame, OptionalCFrame, BrickColor, UniqueId, ColorSeq, NumberSeq,
+                 UDim2, Color3, Rect2D, PhysicalProperties, NumberRange, FontInfo>
         data;
 
     friend class BinaryReader;
